@@ -7,7 +7,7 @@ HTML = """
 <h2>スタジオアリス クーポンチェッカー</h2>
 
 <form method="post">
-<textarea name="coupons" rows="10" cols="40" placeholder="0000-0000-0000-0000"></textarea><br><br>
+<textarea name="coupons" rows="10" cols="40"></textarea><br><br>
 <button type="submit">チェック</button>
 </form>
 
@@ -15,31 +15,37 @@ HTML = """
 <h3>結果</h3>
 <pre>
 {% for r in results %}
-{{ r }}
+{{r}}
 {% endfor %}
 </pre>
 {% endif %}
 """
+
+session = requests.Session()
+
+# 先に予約ページを開いてCookie取得
+session.get("https://reserve.studio-alice.co.jp/shooting/shooting_input.php")
 
 
 def check_coupon(code):
 
     url = "https://reserve.studio-alice.co.jp/shooting/shooting_input.php"
 
-    payload = {
+    data = {
         "action": "couponplus",
         "cd_coupon": code.replace("-", ""),
         "plus_str": code
     }
 
     headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Referer": "https://reserve.studio-alice.co.jp/"
+        "x-requested-with": "XMLHttpRequest",
+        "referer": "https://reserve.studio-alice.co.jp/shooting/shooting_input.php",
+        "user-agent": "Mozilla/5.0"
     }
 
-    try:
+    r = session.post(url, data=data, headers=headers)
 
-        r = requests.post(url, data=payload, headers=headers, timeout=10)
+    try:
 
         j = r.json()
 
@@ -47,12 +53,6 @@ def check_coupon(code):
 
             name = j["result"]["kj_coupon"]
             limit = j["result"]["ym_coupon_limit"]
-
-            yyyy = limit[0:4]
-            mm = limit[4:6]
-            dd = limit[6:8]
-
-            limit = f"{yyyy}/{mm}/{dd}"
 
             return f"{code} → 利用可能 ({name} / {limit})"
 
@@ -62,12 +62,12 @@ def check_coupon(code):
 
         return f"{code} → 無効"
 
-    except Exception as e:
+    except:
 
-        return f"{code} → 判定不能"
+        return f"{code} → {r.text[:80]}"
 
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/", methods=["GET","POST"])
 def index():
 
     results = []
