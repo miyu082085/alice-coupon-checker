@@ -7,7 +7,7 @@ HTML = """
 <h2>スタジオアリス クーポンチェッカー</h2>
 
 <form method="post">
-<textarea name="coupons" rows="10" cols="40" placeholder="クーポンを改行で入力"></textarea><br><br>
+<textarea name="coupons" rows="10" cols="40"></textarea><br><br>
 <button type="submit">チェック</button>
 </form>
 
@@ -23,6 +23,11 @@ HTML = """
 
 def check_coupon(code):
 
+    session = requests.Session()
+
+    # ① 予約トップアクセス（Cookie取得）
+    session.get("https://reserve.studio-alice.co.jp/")
+
     url = "https://reserve.studio-alice.co.jp/shooting/shooting_input.php"
 
     payload = {
@@ -31,17 +36,26 @@ def check_coupon(code):
         "plus_str": code
     }
 
-    r = requests.post(url, data=payload)
+    r = session.post(url, data=payload)
 
-    print("-----")
-    print(code)
-    print(r.text[:1000])   # 最初の1000文字表示
-    print("-----")
+    text = r.text
 
-    return "確認中"
+    if "既に使用されています" in text:
+        return "使用済み"
+
+    if "存在しません" in text:
+        return "存在しない"
+
+    if "クーポン" in text:
+        return "利用可能"
+
+    if "予約情報が取得できません" in text:
+        return "セッションエラー"
+
+    return "判定不能"
 
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/", methods=["GET","POST"])
 def index():
 
     results = []
@@ -53,8 +67,7 @@ def index():
         for c in coupons:
             c = c.strip()
             if c:
-                result = check_coupon(c)
-                results.append(f"{c} → {result}")
+                results.append(f"{c} → {check_coupon(c)}")
 
     return render_template_string(HTML, results=results)
 
