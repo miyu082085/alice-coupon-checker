@@ -1,14 +1,9 @@
-# -*- coding: utf-8 -*-
-
 from flask import Flask, request, render_template_string
 import requests
-import re
 
 app = Flask(__name__)
 
 HTML = """
-<!doctype html>
-<title>スタジオアリスクーポンチェッカー</title>
 <h2>スタジオアリス クーポンチェッカー</h2>
 
 <form method="post">
@@ -18,57 +13,41 @@ HTML = """
 
 {% if results %}
 <h3>結果</h3>
-<ul>
+<pre>
 {% for r in results %}
-<li>{{r}}</li>
+{{ r }}
 {% endfor %}
-</ul>
+</pre>
 {% endif %}
 """
 
-def normalize_coupon(code):
-    return re.sub(r"[^0-9]", "", code)
+def check_coupon(code):
 
-def format_coupon(code):
-    return f"{code[0:4]}-{code[4:8]}-{code[8:12]}-{code[12:16]}"
-
-def check_coupon(coupon):
-
-    code = normalize_coupon(coupon)
-
-    if len(code) != 16:
-        return f"{coupon} → 形式エラー"
-
-    url = "https://www.studio-alice.co.jp/coupon/api/checkCoupon"
+    url = "https://reserve.studio-alice.co.jp/shooting/shooting_input.php"
 
     payload = {
-        "couponCode": code
+        "action": "couponplus",
+        "cd_coupon": code.replace("-", ""),
+        "plus_str": code
     }
 
-    try:
-        r = requests.post(url, json=payload, timeout=10)
+    r = requests.post(url, data=payload)
 
-        text = r.text
+    text = r.text
 
-        if "既に使用されています" in text:
-            result = "使用済み"
+    if "利用できません" in text:
+        return "使用不可"
 
-        elif "存在しません" in text:
-            result = "存在しない"
+    if "エラー" in text:
+        return "エラー"
 
-        elif "利用可能" in text or "配布対象" in text:
-            result = "利用可能"
+    if "クーポン" in text:
+        return "利用可能の可能性"
 
-        else:
-            result = "判定不能"
-
-    except Exception as e:
-        result = "通信エラー"
-
-    return f"{format_coupon(code)} → {result}"
+    return "判定不能"
 
 
-@app.route("/", methods=["GET","POST"])
+@app.route("/", methods=["GET", "POST"])
 def index():
 
     results = []
@@ -78,9 +57,10 @@ def index():
         coupons = request.form["coupons"].splitlines()
 
         for c in coupons:
-
-            if c.strip():
-                results.append(check_coupon(c.strip()))
+            c = c.strip()
+            if c:
+                result = check_coupon(c)
+                results.append(f"{c} → {result}")
 
     return render_template_string(HTML, results=results)
 
