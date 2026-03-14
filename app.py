@@ -7,7 +7,8 @@ HTML = """
 <h2>スタジオアリス クーポンチェッカー</h2>
 
 <form method="post">
-<textarea name="coupons" rows="10" cols="40"></textarea><br><br>
+<textarea name="coupons" rows="10" cols="40"
+placeholder="0000-0000-0000-0000"></textarea><br><br>
 <button type="submit">チェック</button>
 </form>
 
@@ -23,7 +24,7 @@ HTML = """
 
 session = requests.Session()
 
-# 先に予約ページを開いてCookie取得
+# Cookie取得
 session.get("https://reserve.studio-alice.co.jp/shooting/shooting_input.php")
 
 
@@ -49,22 +50,28 @@ def check_coupon(code):
 
         j = r.json()
 
-        if "id" in j and str(j["id"]) == "12":
+        if j.get("result"):
 
             name = j["result"]["kj_coupon"]
             limit = j["result"]["ym_coupon_limit"]
 
+            yyyy = limit[0:4]
+            mm = limit[4:6]
+            dd = limit[6:8]
+
+            limit = f"{yyyy}/{mm}/{dd}"
+
             return f"{code} → 利用可能 ({name} / {limit})"
 
-        if "error" in j:
+        if j.get("error"):
 
             return f"{code} → {j['error']['message']}"
 
-        return f"{code} → 無効"
+        return f"{code} → 判定不能"
 
     except:
 
-        return f"{code} → {r.text[:80]}"
+        return f"{code} → エラー"
 
 
 @app.route("/", methods=["GET","POST"])
