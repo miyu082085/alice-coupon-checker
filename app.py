@@ -33,18 +33,12 @@ def check_coupon(code):
 
     r = requests.post(url, data=payload)
 
-    text = r.text
+    print("-----")
+    print(code)
+    print(r.text[:1000])   # 最初の1000文字表示
+    print("-----")
 
-    if "利用できません" in text:
-        return "使用不可"
-
-    if "エラー" in text:
-        return "エラー"
-
-    if "クーポン" in text:
-        return "利用可能の可能性"
-
-    return "判定不能"
+    return "確認中"
 
 
 @app.route("/", methods=["GET", "POST"])
