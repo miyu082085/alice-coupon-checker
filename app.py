@@ -1,3 +1,9 @@
+from flask import Flask, request
+import requests
+
+app = Flask(__name__)
+
+
 def check_coupon(code):
 
     url = "https://reserve.studio-alice.co.jp/shooting/shooting_input.php"
@@ -10,11 +16,8 @@ def check_coupon(code):
         "X-Requested-With": "XMLHttpRequest"
     }
 
-    # ① Cookie取得
-    session.get(
-        "https://reserve.studio-alice.co.jp/shooting/shooting_input.php",
-        headers=headers
-    )
+    # Cookie取得
+    session.get(url, headers=headers)
 
     data = {
         "action": "couponplus",
@@ -22,15 +25,12 @@ def check_coupon(code):
         "plus_str": code
     }
 
-    # ② クーポンチェック
     r = session.post(url, data=data, headers=headers)
 
     try:
-
         j = r.json()
 
         if j.get("result"):
-
             name = j["result"]["kj_coupon"]
             limit = j["result"]["ym_coupon_limit"]
 
@@ -41,11 +41,28 @@ def check_coupon(code):
             return f"{code} → 利用可能 ({name} / {yyyy}/{mm}/{dd})"
 
         if j.get("error"):
-
             return f"{code} → {j['error']['message']}"
 
         return f"{code} → 判定不能"
 
     except:
+        return f"{code} → エラー"
 
-        return f"{code} → {r.text[:100]}"
+
+@app.route("/")
+def home():
+    return "alice coupon checker running"
+
+
+@app.route("/check")
+def check():
+
+    codes = request.args.get("codes", "")
+    codes = codes.split(",")
+
+    result = []
+
+    for c in codes:
+        result.append(check_coupon(c.strip()))
+
+    return "<br>".join(result)
